@@ -23,4 +23,4 @@ class infoblox_plug(PluginBase):
         host.fetch()
         return { 'items': host.items}
 
- plugin_class = infoblox_plug
+plugin_class = infoblox_plug
