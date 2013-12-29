@@ -8,8 +8,8 @@ class infoblox_plug(PluginBase):
     title =        'Infoblox'
     description =  'Retrieve information from Infoblox'
     cache_timeout =   60*60
-    types =     ['hostname']
-    remote =     False
+    types = ['hostname']
+    remote = False
 
     def setup(self):
         ibpass = self.plugin_config['password']
@@ -21,6 +21,6 @@ class infoblox_plug(PluginBase):
     def get_info(self, arg):
         host = infoblox.Host(self.session,name=arg)
         host.fetch()
-        return { 'items': host.items}
+        return host.__dict__
 
- plugin_class = infoblox_plug
+plugin_class = infoblox_plug
