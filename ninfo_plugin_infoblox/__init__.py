@@ -18,75 +18,85 @@ class infoblox_plug(PluginBase):
     #local = True
 
     def setup(self):
-        ibpass = self.plugin_config['password']
-        ibuser = self.plugin_config['username']
-        ibhost = self.plugin_config['hostname']
-        self.session = infoblox.Session(ibhost,ibuser,ibpass)
+        self.api = infoblox.Infoblox(self.plugin_config['hostname'],self.plugin_config['username'],self.plugin_config['password'], '1.6', 'External', 'default')
 
-    def format_out(self, thehost):
-	thehost.fetch()
-	thedict = thehost.__dict__
-
-	# final output dictionary is placed in the o variable
-	o = {}
-	o['_ref'] = thedict['_ref']
-	if (o['_ref'] == None):
-	    return o
-	print thedict	
-        if 'extattrs' in thedict:
-		extattrs = thedict['extattrs']
-		if 'Pol8 Classification' in extattrs:
-	            o['classification'] = extattrs['Pol8 Classification']['value']
-		else:
-		    o['classification'] = 'NA'
-		if 'Business Contact' in extattrs:
-	            o['businesscontact'] = extattrs['Business Contact']['value']
-		elif 'LEGACY-AdminID' in extattrs:
-		    o['businesscontact'] = extattrs['LEGACY-AdminID']['value']
-		else:
-		    o['businesscontact'] = 'NA'
-
-		if 'Technical Contact' in extattrs:
-	            o['technicalcontact'] = extattrs['Technical Contact']['value']
-		elif 'LEGACY-ContactID' in extattrs:
-		    o['technicalcontact'] = extattrs['LEGACY-ContactID']['value']
-		else:
-		    o['technicalcontact'] = 'NA'
+    def format_out(self, host, extattrs):
+        # This code appears to work well, assuming that the extattrs thing exists. 
+        # TO DO: I need to check what happens if I ask for extattrs for something that doesn't have any.
+        o = {}
+        o['_ref'] = host['_ref']
+        if (o['_ref'] == None):
+            return o
+        if 'Pol8 Classification' in extattrs:
+            o['classification'] = extattrs['Pol8 Classification']
         else:
             o['classification'] = 'NA'
+        if 'Business Contact' in extattrs:
+            o['businesscontact'] = extattrs['Business Contact']
+        elif 'LEGACY-AdminID' in extattrs:
+            o['businesscontact'] = extattrs['LEGACY-AdminID']
+        else:
             o['businesscontact'] = 'NA'
+
+        if 'Technical Contact' in extattrs:
+            o['technicalcontact'] = extattrs['Technical Contact']
+        elif 'LEGACY-ContactID' in extattrs:
+            o['technicalcontact'] = extattrs['LEGACY-ContactID']
+        else:
             o['technicalcontact'] = 'NA'
-	return o
+
+        # convert into comma delimited list of contacts, rather than a unicode list.
+        o['technicalcontact'] = self.list_to_csv(o['technicalcontact'])
+        o['businesscontact'] = self.list_to_csv(o['businesscontact'])
+
+        return o
+
+    def list_to_csv(self, thelist):
+        # first checking to see if it's actually a list
+        if isinstance(thelist, list):
+            s = ''
+            for i in thelist:
+                s = s + i + ','
+            return s[0:-1] #stripping last comma
+        else:
+            return thelist
 
     def get_info(self, arg):
         with warnings.catch_warnings():
+            # catching the super annoying warnings regarding insecure connections.
             warnings.filterwarnings("ignore", ".*Unverified.*")
             argtype = util.get_type(arg)
             if argtype == 'hostname':
-            	host = infoblox.Host(self.session,name=arg)
+                try:
+                    host = self.api.get_host(arg)
+                    extattrs = self.api.get_host_extattrs(arg)
+                except:
+                    try:
+                        #can't find the hostname, so try to get an IP address from DNS and pass that to the function
+                        addr = socket.getaddrinfo(arg, None)[0][4][0]
+                        return get_info(addr)
+                    except:
+                        return {'_ref' : None }
+
             elif argtype == 'ip':
-		# attempting to resolve the hostname, since stuff is better tracked that way.
-		try:
-		    res = socket.gethostbyaddr(arg)
-		    return self.get_info(res[0])
-		except:
-                    host = infoblox.HostIPv4(self.session,ipv4addr=arg)
-	    out = self.format_out(host)
-	    if (out['_ref'] == None):
-		return out
-	    hdict = host.__dict__
-	    if argtype == 'hostname':
-		out['type'] = 'hostname'
-		out['dns_name'] = hdict['dns_name']
-		out['ipv4addr'] = hdict['ipv4addrs'][0]['ipv4addr']
-	    elif argtype == 'ip':
-	    # TO DO: QUERY FOR THE HOSTNAME AND THEN PROCESS LIKE THIS IF IT DOESN'T WORK
-		out['type'] = 'ip'
-                out['dns_name'] = hdict['host']
-                out['ipv4addr'] = hdict['ipv4addr']
-	    else:
-	        print "infoblox plugin goes argh"
-	return out
+                try:
+                    res = socket.gethostbyaddr(arg)
+                    return self.get_info(res[0])
+                except:
+                    pass
+                    try:
+                        hostname = self.api.get_host_by_ip(arg)[0]
+                        return self.get_info(hostname)
+                    except:
+                        return {'_ref' : None }
+
+            out = self.format_out(host, extattrs)
+
+            if (out['_ref'] == None):
+                return out
+            out['type'] = 'hostname'
+            out['dns_name'] = host['ipv4addrs'][0]['host']
+            out['ipv4addr'] = host['ipv4addrs'][0]['ipv4addr']
+        return out
 
 plugin_class = infoblox_plug
-
