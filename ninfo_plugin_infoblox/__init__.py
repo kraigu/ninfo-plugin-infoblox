@@ -66,21 +66,22 @@ class infoblox_plug(PluginBase):
             # catching the super annoying warnings regarding insecure connections.
             warnings.filterwarnings("ignore", ".*Unverified.*")
             argtype = util.get_type(arg)
-            if argtype == 'hostname':
-                try:
-                    host = self.api.get_host(arg)
-                    extattrs = self.api.get_host_extattrs(arg)
-                except:
-                    try:
-                        #can't find the hostname, so try to get an IP address from DNS and pass that to the function
-                        addr = socket.getaddrinfo(arg, None)[0][4][0]
-                        return get_info(addr)
-                    except:
-                        return {'_ref' : None }
 
+            if argtype == 'hostname':
+                # If we have a hostname, it might be a CNAME, so naively try resolving it.
+                # CNAMEs aren't host records according to Infoblox, so just searching
+                # for the CNAME will return nothing. If we do hostname -> IP and back again,
+                # that should work.
+                try:
+                    hname = socket.gethostbyaddr(socket.gethostbyname(arg))[0]
+                    host = self.api.get_host(hname)
+                    extattrs = self.api.get_host_extattrs(hname)
+                except:
+                    # Something's gone really wrong
+                    return {'_ref': None }
             elif argtype == 'ip':
                 try:
-                    res = socket.gethostbyaddr(arg)
+                    res = socket.gethostbyaddr(ipaddr)
                     return self.get_info(res[0])
                 except:
                     pass
