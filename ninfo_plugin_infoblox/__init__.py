@@ -18,7 +18,7 @@ class infoblox_plug(PluginBase):
     #local = True
 
     def setup(self):
-        self.api = infoblox.Infoblox(self.plugin_config['hostname'],self.plugin_config['username'],self.plugin_config['password'], '1.6', 'External', 'default')
+        self.api = infoblox.Infoblox(self.plugin_config['hostname'],self.plugin_config['username'],self.plugin_config['password'], '1.6', '', 'default')
 
     def format_out(self, host, extattrs):
         # This code appears to work well, assuming that the extattrs thing exists. 
