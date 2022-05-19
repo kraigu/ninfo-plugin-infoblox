@@ -72,16 +72,22 @@ class infoblox_plug(PluginBase):
                 # CNAMEs aren't host records according to Infoblox, so just searching
                 # for the CNAME will return nothing. If we do hostname -> IP and back again,
                 # that should work.
+
+                ip = socket.gethostbyname(arg)
                 try:
-                    hname = socket.gethostbyaddr(socket.gethostbyname(arg))[0]
+                    hname = socket.gethostbyaddr(ip)[0]
                     host = self.api.get_host(hname)
                     extattrs = self.api.get_host_extattrs(hname)
                 except:
+                    try:
+                        host = self.api.get_host(arg)
+                        extattrs = self.api.get_host_extattrs(arg)
                     # Something's gone really wrong
-                    return {'_ref': None }
+                    except:
+                        return {'_ref': None }
             elif argtype == 'ip':
                 try:
-                    res = socket.gethostbyaddr(ipaddr)
+                    res = socket.gethostbyaddr(arg)
                     return self.get_info(res[0])
                 except:
                     pass
