@@ -67,7 +67,7 @@ class infoblox_plug(PluginBase):
             warnings.filterwarnings("ignore", ".*Unverified.*")
             argtype = util.get_type(arg)
 
-            if argtype == 'hostname':
+            if 'hostname' in argtype:
                 # If we have a hostname, it might be a CNAME, so naively try resolving it.
                 # CNAMEs aren't host records according to Infoblox, so just searching
                 # for the CNAME will return nothing. If we do hostname -> IP and back again,
@@ -85,7 +85,7 @@ class infoblox_plug(PluginBase):
                     # Something's gone really wrong
                     except:
                         return {'_ref': None }
-            elif argtype == 'ip':
+            elif 'ip' in argtype:
                 try:
                     res = socket.gethostbyaddr(arg)
                     return self.get_info(res[0])
